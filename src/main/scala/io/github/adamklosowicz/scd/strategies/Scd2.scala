@@ -5,24 +5,27 @@ import org.apache.spark.sql.functions.{col, lit}
 import org.apache.spark.sql.types.DateType
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
-object Scd2 extends ScdStrategy {
+import java.time.LocalDate
+
+object Scd2 {
 
   protected val VALID_FROM_COL = "effective_from_date"
   protected val VALID_TO_COL = "effective_to_date"
   protected val IS_CURRENT_COL = "is_current"
 
-  override def apply(
+  def apply(
     sourceDf: DataFrame,
     targetPath: String,
     naturalKeyColumns: Seq[String],
-    ingestDate: String,
+    ingestDate: Option[String] = None,
     isSourceSnapshot: Boolean = false,
     technicalColumns: Seq[String] = Seq.empty
   )(implicit spark: SparkSession): Unit = {
+    val ingestDateFinal = ingestDate.getOrElse(LocalDate.now().toString)
     if (!DeltaTable.isDeltaTable(spark, targetPath)) {
-      saveInitVersion(sourceDf, targetPath, ingestDate)
+      saveInitVersion(sourceDf, targetPath, ingestDateFinal)
     } else {
-      merge(sourceDf, targetPath, naturalKeyColumns, ingestDate, isSourceSnapshot, technicalColumns)
+      merge(sourceDf, targetPath, naturalKeyColumns, ingestDateFinal, isSourceSnapshot, technicalColumns)
     }
   }
 
@@ -71,15 +74,15 @@ object Scd2 extends ScdStrategy {
       mergeSourceDf = mergeSourceDf.unionByName(expiredRecordsDf.withColumn("_merge_action", lit("UPDATE")))
     }
 
-    val mergeCondition = naturalKeyColumns.map(k => s"target.$k = source.$k").mkString(" AND ")
-    val condition = s"""
-                       | $mergeCondition
+    val condition = naturalKeyColumns.map(k => s"target.$k = source.$k").mkString(" AND ")
+    val mergeCondition = s"""
+                       | $condition
                        | AND target.$IS_CURRENT_COL = true
                        | AND source._merge_action = 'UPDATE'
        """.stripMargin
 
     target.as("target")
-      .merge(mergeSourceDf.as("source"), condition)
+      .merge(mergeSourceDf.as("source"), mergeCondition)
       .whenMatched
       .updateExpr(
         Map(

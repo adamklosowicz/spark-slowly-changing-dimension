@@ -34,12 +34,12 @@ class ScdDriverTest extends ScdCommonTest with BeforeAndAfterEach with Matchers 
   }
 
   test("Should not throw an exception for a valid SCD type") {
-    noException should be thrownBy ScdDriver("SCD2", df, targetPath, naturalKey, "2026-08-01")
+    noException should be thrownBy ScdDriver("SCD2", df, targetPath, naturalKey, Some("2026-08-01"))
   }
 
   test("Should throw an exception for an invalid SCD type") {
     val ex = intercept[InvalidScdTypeException] {
-      ScdDriver("invalid_scd", df, targetPath, naturalKey, "2026-08-01")
+      ScdDriver("invalid_scd", df, targetPath, naturalKey, Some("2026-08-01"))
     }
     ex.getMessage shouldBe "Invalid SCD type: invalid_scd"
   }
