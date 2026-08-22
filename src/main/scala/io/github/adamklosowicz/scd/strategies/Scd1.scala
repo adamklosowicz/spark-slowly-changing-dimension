@@ -1,9 +1,11 @@
 package io.github.adamklosowicz.scd.strategies
 
+import io.github.adamklosowicz.scd.Helper.DfExtender
 import io.delta.tables.DeltaTable
+import io.github.adamklosowicz.scd.Helper
 import org.apache.spark.sql.functions.lit
 import org.apache.spark.sql.types.DateType
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 
 import java.time.LocalDate
 
@@ -32,15 +34,13 @@ object Scd1 {
     includeDateCol: Boolean = false,
     ingestDate: Option[String] = None
   ): Unit = {
-    val sourceDfToSave = if (includeDateCol) {
-      sourceDf
-        .withColumn(CREATED_AT_COL, lit(ingestDate.getOrElse(LocalDate.now())).cast(DateType))
-        .withColumn(UPDATED_AT_COL, lit(ingestDate.getOrElse(LocalDate.now())).cast(DateType))
-    } else {
-      sourceDf
-    }
-    sourceDfToSave.write.format("delta").mode("overwrite")
-      .save(targetPath)
+    val columns: Map[String, Column] = if (includeDateCol) {
+      Map(
+        CREATED_AT_COL -> lit(ingestDate.getOrElse(LocalDate.now())).cast(DateType),
+        UPDATED_AT_COL -> lit(ingestDate.getOrElse(LocalDate.now())).cast(DateType)
+      )
+    } else Map()
+    sourceDf.saveWithColumns(targetPath, columns)
   }
 
   protected def merge(
@@ -52,8 +52,7 @@ object Scd1 {
   )(implicit spark: SparkSession): Unit = {
     val target = DeltaTable.forPath(spark, targetPath)
 
-    val mergeCondition = naturalKeyColumns.map(k => s"target.$k = source.$k").mkString(" AND ")
-
+    val mergeCondition = Helper.getKeyMergeCondition(naturalKeyColumns)
     val technicalMap1: Map[String, String] = if (includeDateCol) {
       val ingestDateStr = ingestDate.getOrElse(LocalDate.now())
       Map(UPDATED_AT_COL -> s"to_date('$ingestDateStr')")
@@ -64,11 +63,11 @@ object Scd1 {
 
     target.as("target")
       .merge(sourceDf.as("source"), mergeCondition)
-      .whenMatched()
+      .whenMatched
       .updateExpr(sourceDf.columns.map(c => c -> s"source.$c").toMap ++ technicalMap1)
-      .whenNotMatched()
+      .whenNotMatched
       .insertExpr(sourceDf.columns.map(c => c -> s"source.$c").toMap ++ technicalMap2)
-      .execute()
+      .execute
   }
 
 }

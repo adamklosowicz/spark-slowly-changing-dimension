@@ -1,9 +1,11 @@
 package io.github.adamklosowicz.scd.strategies
 
+import io.github.adamklosowicz.scd.Helper.DfExtender
 import io.delta.tables.DeltaTable
+import io.github.adamklosowicz.scd.Helper
 import org.apache.spark.sql.functions.{col, lit}
 import org.apache.spark.sql.types.DateType
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 
 import java.time.LocalDate
 
@@ -22,6 +24,7 @@ object Scd2 {
     technicalColumns: Seq[String] = Seq.empty
   )(implicit spark: SparkSession): Unit = {
     val ingestDateFinal = ingestDate.getOrElse(LocalDate.now().toString)
+
     if (!DeltaTable.isDeltaTable(spark, targetPath)) {
       saveInitVersion(sourceDf, targetPath, ingestDateFinal)
     } else {
@@ -30,12 +33,12 @@ object Scd2 {
   }
 
   protected def saveInitVersion(sourceDf: DataFrame, targetPath: String, ingestDate: String): Unit = {
-    sourceDf
-      .withColumn(VALID_FROM_COL, lit(ingestDate).cast(DateType))
-      .withColumn(VALID_TO_COL, lit(null).cast(DateType))
-      .withColumn(IS_CURRENT_COL, lit(true))
-      .write.format("delta").mode("overwrite")
-      .save(targetPath)
+    val columns: Map[String, Column] = Map(
+      VALID_FROM_COL -> lit(ingestDate).cast(DateType),
+      VALID_TO_COL -> lit(null).cast(DateType),
+      IS_CURRENT_COL -> lit(true)
+    )
+    sourceDf.saveWithColumns(targetPath, columns)
   }
 
   protected def merge(
@@ -48,7 +51,7 @@ object Scd2 {
   )(implicit spark: SparkSession): Unit = {
     val scd2Columns = Seq(VALID_FROM_COL, VALID_TO_COL, IS_CURRENT_COL)
     val target = DeltaTable.forPath(spark, targetPath)
-    val targetCurrentDf = target.toDF.where(col(IS_CURRENT_COL) === true)
+    val targetCurrentDf = target.toDF.filter(col(IS_CURRENT_COL) === true)
       .drop(scd2Columns: _*)
 
     val columnsToExclude = Seq(
@@ -56,7 +59,7 @@ object Scd2 {
       technicalColumns,
       scd2Columns
     )
-    val trackedColumns = sourceDf.columns.filterNot(columnsToExclude.flatten.contains(_))
+    val trackedColumns = Helper.getTrackedColumns(sourceDf, columnsToExclude.flatten)
 
     val changedSourceDf = sourceDf.alias("source")
       .join(targetCurrentDf.alias("target"), naturalKeyColumns)
@@ -74,7 +77,7 @@ object Scd2 {
       mergeSourceDf = mergeSourceDf.unionByName(expiredRecordsDf.withColumn("_merge_action", lit("UPDATE")))
     }
 
-    val condition = naturalKeyColumns.map(k => s"target.$k = source.$k").mkString(" AND ")
+    val condition = Helper.getKeyMergeCondition(naturalKeyColumns)
     val mergeCondition = s"""
                        | $condition
                        | AND target.$IS_CURRENT_COL = true
@@ -99,7 +102,7 @@ object Scd2 {
             IS_CURRENT_COL -> "true"
           )
       )
-      .execute()
+      .execute
   }
 
 }
