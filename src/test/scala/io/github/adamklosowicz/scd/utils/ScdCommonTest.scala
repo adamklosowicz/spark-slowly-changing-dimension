@@ -10,7 +10,7 @@ class ScdCommonTest extends AnyFunSuite with BeforeAndAfterAll {
 
   override def beforeAll(): Unit = {
     spark = SparkSession.builder()
-      .appName("Scd2Test")
+      .appName("ScdTest")
       .master("local[*]")
       .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
       .config(

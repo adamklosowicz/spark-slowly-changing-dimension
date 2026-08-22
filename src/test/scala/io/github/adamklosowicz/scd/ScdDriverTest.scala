@@ -1,12 +1,11 @@
 package io.github.adamklosowicz.scd
 
 import io.github.adamklosowicz.scd.exceptions.InvalidScdTypeException
-import io.github.adamklosowicz.scd.utils.ScdCommonTest
+import io.github.adamklosowicz.scd.utils.{ScdCommonTest, TestHelper}
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
-import org.apache.hadoop.fs.{FileSystem, Path}
 
 class ScdDriverTest extends ScdCommonTest with BeforeAndAfterEach with Matchers {
 
@@ -15,7 +14,8 @@ class ScdDriverTest extends ScdCommonTest with BeforeAndAfterEach with Matchers 
     StructField("employee_id", IntegerType, nullable = false),
     StructField("salary", IntegerType, nullable = true)
   ))
-  val targetPath = "output/target.delta"
+  val naturalKey: Seq[String] = Seq("employee_id")
+  val targetPath: String = "output/target.delta"
 
   override def beforeAll(): Unit = {
     super.beforeAll()
@@ -30,18 +30,18 @@ class ScdDriverTest extends ScdCommonTest with BeforeAndAfterEach with Matchers 
   }
 
   override def afterEach(): Unit = {
-    val fs = FileSystem.get(spark.sparkContext.hadoopConfiguration)
-    fs.delete(new Path("output"), true)
+    TestHelper.removePath("output")
   }
 
   test("Should not throw an exception for a valid SCD type") {
-    noException should be thrownBy ScdDriver("scd2", df, targetPath, Seq("employee_id"), "2026-08-01")
+    noException should be thrownBy ScdDriver("SCD2", df, targetPath, naturalKey, "2026-08-01")
   }
 
   test("Should throw an exception for an invalid SCD type") {
     val ex = intercept[InvalidScdTypeException] {
-      ScdDriver("invalid_scd", df, targetPath, Seq("employee_id"), "2026-08-01")
+      ScdDriver("invalid_scd", df, targetPath, naturalKey, "2026-08-01")
     }
     ex.getMessage shouldBe "Invalid SCD type: invalid_scd"
   }
+
 }
