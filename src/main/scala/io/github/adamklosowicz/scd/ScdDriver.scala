@@ -16,7 +16,8 @@ object ScdDriver {
     technicalColumns: Option[Seq[String]] = None
   )(implicit spark: SparkSession): Unit =
     scdType.toLowerCase match {
-      case "scd0" => Scd0(sourceDf, targetPath, naturalKeyColumns, includeCreationDateCol = true, ingestDate)
+      case "scd0" => Scd0(sourceDf, targetPath, naturalKeyColumns, includeDateCol = true, ingestDate)
+      case "scd1" => Scd1(sourceDf, targetPath, naturalKeyColumns, includeDateCol = true, ingestDate)
       case "scd2" => Scd2(sourceDf, targetPath, naturalKeyColumns, ingestDate, isSourceSnapshot.getOrElse(false), technicalColumns.getOrElse(Seq.empty))
       case _ => throw new InvalidScdTypeException(scdType)
     }

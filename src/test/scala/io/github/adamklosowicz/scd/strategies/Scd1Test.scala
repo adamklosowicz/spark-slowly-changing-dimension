@@ -6,7 +6,7 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
 import org.scalatest.BeforeAndAfterEach
 
-class Scd0Test extends ScdCommonTest with BeforeAndAfterEach {
+class Scd1Test extends ScdCommonTest with BeforeAndAfterEach {
 
   val schema: StructType = StructType(Seq(
     StructField("employee_id", IntegerType, nullable = false),
@@ -26,14 +26,14 @@ class Scd0Test extends ScdCommonTest with BeforeAndAfterEach {
       )),
       schema
     )
-    Scd0(initDf, targetPath, naturalKey, includeDateCol = true, Some("2026-07-01"))
+    Scd1(initDf, targetPath, naturalKey, includeDateCol = true, Some("2026-07-01"))
   }
 
   override def afterEach(): Unit = {
     TestHelper.removePath("output")
   }
 
-  test("SCD0 should keep origin record when salary changes") {
+  test("SCD1 should update existing record when salary changes") {
     val nextIterationSource = spark.createDataFrame(
       spark.sparkContext.parallelize(Seq(
         Row(1, "Adam", "Berlin", 12500), // salary changed: 10000 -> 12500
@@ -42,24 +42,24 @@ class Scd0Test extends ScdCommonTest with BeforeAndAfterEach {
       )),
       schema
     )
-    Scd0(nextIterationSource, targetPath, naturalKey, includeDateCol = true, Some("2026-08-01"))
+    Scd1(nextIterationSource, targetPath, naturalKey, includeDateCol = true, Some("2026-08-01"))
 
     val updatedTarget = spark.read.format("delta").load(targetPath)
     updatedTarget.count() equals 3
-    updatedTarget.where(col("employee_id") === 1 && col("salary") === 10000).count() equals 1
+    updatedTarget.where(col("employee_id") === 1 && col("salary") === 12500).count() equals 1
   }
 
-  test("SCD0 should create new record when appears in source") {
+  test("SCD1 should create new record when appears in source") {
     val nextIterationSource = spark.createDataFrame(
       spark.sparkContext.parallelize(Seq(
-        Row(1, "Adam", "Berlin", 12500),
+        Row(1, "Adam", "Berlin", 10000),
         Row(2, "John", "Warsaw", 12000),
         Row(3, "Eva", "Wroclaw", 16000),
         Row(4, "Peter", "London", 12000)
       )),
       schema
     )
-    Scd0(nextIterationSource, targetPath, naturalKey, includeDateCol = true, Some("2026-08-01"))
+    Scd1(nextIterationSource, targetPath, naturalKey, includeDateCol = true, Some("2026-08-01"))
 
     val updatedTarget = spark.read.format("delta").load(targetPath)
     updatedTarget.count() equals 4
