@@ -12,10 +12,11 @@ object Helper {
     columns: Seq[String],
     comparisonOperator: String = "=",
     logicalOperator: String = "AND",
+    conditionTemplate: String = "<condition>",
     leftAlias: String = "target",
     rightAlias: String = "source"
   ): String =
-    columns.map(k => s"$leftAlias.$k $comparisonOperator $rightAlias.$k").mkString(s" $logicalOperator ")
+    columns.map(k => conditionTemplate.replace("<condition>", s"$leftAlias.$k $comparisonOperator $rightAlias.$k")).mkString(s" $logicalOperator ")
 
   def getTrackedColumns(df: DataFrame, columnsToExclude: Seq[String]): Seq[String] =
     df.columns.filterNot(columnsToExclude.contains(_))

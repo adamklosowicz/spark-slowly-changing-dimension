@@ -24,7 +24,8 @@ object Scd1 {
     targetPath: String,
     naturalKeyColumns: Seq[String],
     includeDateCol: Boolean = false,
-    ingestDate: Option[String] = None
+    ingestDate: Option[String] = None,
+    technicalColumns: Seq[String] = Seq.empty
   )(implicit spark: SparkSession): Unit = {
     if (!Helper.pathExists(targetPath)) {
       saveInitVersion(sourceDf, targetPath, includeDateCol, ingestDate)
@@ -53,7 +54,8 @@ object Scd1 {
     targetPath: String,
     naturalKeyColumns: Seq[String],
     includeDateCol: Boolean = false,
-    ingestDate: Option[String] = None
+    ingestDate: Option[String] = None,
+    technicalColumns: Seq[String] = Seq.empty
   )(implicit spark: SparkSession): Unit = {
     Helper.validateDelta(targetPath)
     val target = DeltaTable.forPath(spark, targetPath)
@@ -61,7 +63,17 @@ object Scd1 {
     val scdSchema = if (includeDateCol) SCD1_SCHEMA else StructType(Seq())
     Helper.validateSchema(target.toDF, sourceDf, scdSchema)
 
+    var columnsToExclude = Seq(
+      naturalKeyColumns,
+      technicalColumns
+    )
+    if (includeDateCol) {
+      columnsToExclude = columnsToExclude ++ Seq(Seq(CREATED_AT_COL, UPDATED_AT_COL))
+    }
+    val trackedColumns = Helper.getTrackedColumns(sourceDf, columnsToExclude.flatten)
+
     val mergeCondition = Helper.getCondition(naturalKeyColumns)
+    val matchCondition = Helper.getCondition(trackedColumns, "<=>", "OR", "NOT (<condition>)")
     val technicalMap1: Map[String, String] = if (includeDateCol) {
       val ingestDateStr = ingestDate.getOrElse(LocalDate.now())
       Map(UPDATED_AT_COL -> s"to_date('$ingestDateStr')")
@@ -72,7 +84,7 @@ object Scd1 {
 
     target.as("target")
       .merge(sourceDf.as("source"), mergeCondition)
-      .whenMatched
+      .whenMatched(matchCondition)
       .updateExpr(sourceDf.columns.map(c => c -> s"source.$c").toMap ++ technicalMap1)
       .whenNotMatched
       .insertExpr(sourceDf.columns.map(c => c -> s"source.$c").toMap ++ technicalMap2)
