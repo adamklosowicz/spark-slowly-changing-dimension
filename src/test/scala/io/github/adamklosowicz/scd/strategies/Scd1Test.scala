@@ -53,7 +53,7 @@ class Scd1Test extends ScdCommonTest with BeforeAndAfterEach with Matchers {
   test("SCD1 should create new record when appears in source") {
     val nextIterationSource = spark.createDataFrame(
       spark.sparkContext.parallelize(Seq(
-        Row(1, "Adam", "Berlin", 14000),
+        Row(1, "Adam", "Berlin", 14000), // changed record
         Row(2, "John", "Warsaw", 12000),
         Row(3, "Eva", "Wroclaw", 16000),
         Row(4, "Peter", "London", 12000) // new record
