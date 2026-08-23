@@ -11,7 +11,7 @@ object ScdDriver {
     sourceDf: DataFrame,
     targetPath: String,
     naturalKeyColumns: Seq[String],
-    ingestDate: Option[String],
+    ingestDate: Option[String] = None,
     isSourceSnapshot: Option[Boolean] = None,
     technicalColumns: Option[Seq[String]] = None
   )(implicit spark: SparkSession): Unit =

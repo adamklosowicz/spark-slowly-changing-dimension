@@ -4,7 +4,7 @@ import io.github.adamklosowicz.scd.Helper.DfExtender
 import io.delta.tables.DeltaTable
 import io.github.adamklosowicz.scd.Helper
 import org.apache.spark.sql.functions.lit
-import org.apache.spark.sql.types.DateType
+import org.apache.spark.sql.types.{DateType, StructField, StructType}
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 
 import java.time.LocalDate
@@ -13,14 +13,18 @@ object Scd0 {
 
   protected val CREATED_AT_COL = "created_at"
 
+  protected val SCD0_SCHEMA = StructType(Seq(
+    StructField(CREATED_AT_COL, DateType, nullable = false)
+  ))
+
   def apply(
-             sourceDf: DataFrame,
-             targetPath: String,
-             naturalKeyColumns: Seq[String],
-             includeDateCol: Boolean = false,
-             ingestDate: Option[String] = None
+    sourceDf: DataFrame,
+    targetPath: String,
+    naturalKeyColumns: Seq[String],
+    includeDateCol: Boolean = false,
+    ingestDate: Option[String] = None
   )(implicit spark: SparkSession): Unit = {
-    if (!DeltaTable.isDeltaTable(spark, targetPath)) {
+    if (!Helper.pathExists(targetPath)) {
       saveInitVersion(sourceDf, targetPath, includeDateCol, ingestDate)
     } else {
       merge(sourceDf, targetPath, naturalKeyColumns, includeDateCol, ingestDate)
@@ -46,9 +50,13 @@ object Scd0 {
     includeDateCol: Boolean = false,
     ingestDate: Option[String] = None
   )(implicit spark: SparkSession): Unit = {
+    Helper.validateDelta(targetPath)
     val target = DeltaTable.forPath(spark, targetPath)
 
-    val mergeCondition = Helper.getKeyMergeCondition(naturalKeyColumns)
+    val scdSchema = if (includeDateCol) SCD0_SCHEMA else StructType(Seq())
+    Helper.validateSchema(target.toDF, sourceDf, scdSchema)
+
+    val mergeCondition = Helper.getCondition(naturalKeyColumns)
     val technicalMap = if (includeDateCol) {
       val ingestDateStr = ingestDate.getOrElse(LocalDate.now())
       Map(CREATED_AT_COL -> s"to_date('$ingestDateStr')")

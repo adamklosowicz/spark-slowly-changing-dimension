@@ -5,8 +5,9 @@ import org.apache.spark.sql.Row
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
 import org.scalatest.BeforeAndAfterEach
+import org.scalatest.matchers.should.Matchers
 
-class Scd2Test extends ScdCommonTest with BeforeAndAfterEach {
+class Scd2Test extends ScdCommonTest with BeforeAndAfterEach with Matchers {
 
   val schema: StructType = StructType(Seq(
     StructField("employee_id", IntegerType, nullable = false),
@@ -46,7 +47,7 @@ class Scd2Test extends ScdCommonTest with BeforeAndAfterEach {
     Scd2(nextIterationSource, targetPath, naturalKey, Some("2026-08-01"))
 
     val updatedTarget = spark.read.format("delta").load(targetPath)
-    updatedTarget.count() equals 5
+    updatedTarget.count() shouldBe 5
   }
 
   test("SCD2 should deactivate record that disappears in source") {
@@ -61,8 +62,8 @@ class Scd2Test extends ScdCommonTest with BeforeAndAfterEach {
     Scd2(nextIterationSource, targetPath, naturalKey, Some("2026-08-01"), isSourceSnapshot = true)
 
     val updatedTarget = spark.read.format("delta").load(targetPath)
-    updatedTarget.count() equals 3
-    updatedTarget.where(col("employee_id") === 2 && !col("is_current")).count() equals 1
+    updatedTarget.count() shouldBe 3
+    updatedTarget.where(col("employee_id") === 2 && !col("is_current")).count() shouldBe 1
   }
 
 }
