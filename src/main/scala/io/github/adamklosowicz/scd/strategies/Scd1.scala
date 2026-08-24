@@ -81,12 +81,12 @@ object Scd1 extends ScdCommon with ScdValidator {
       technicalMap1 ++ Map(CREATED_AT_COL -> technicalMap1(UPDATED_AT_COL))
     } else Map()
 
-    target.as("target")
-      .merge(sourceDf.as("source"), mergeCondition)
+    target.as(TARGET_ALIAS)
+      .merge(sourceDf.as(SOURCE_ALIAS), mergeCondition)
       .whenMatched(matchCondition)
-      .updateExpr(sourceDf.columns.map(c => c -> s"source.$c").toMap ++ technicalMap1)
+      .updateExpr(sourceDf.columns.map(c => c -> s"$SOURCE_ALIAS.$c").toMap ++ technicalMap1)
       .whenNotMatched
-      .insertExpr(sourceDf.columns.map(c => c -> s"source.$c").toMap ++ technicalMap2)
+      .insertExpr(sourceDf.columns.map(c => c -> s"$SOURCE_ALIAS.$c").toMap ++ technicalMap2)
       .execute
   }
 

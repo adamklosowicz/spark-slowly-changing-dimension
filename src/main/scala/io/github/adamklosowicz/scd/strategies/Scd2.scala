@@ -68,10 +68,10 @@ object Scd2 extends ScdCommon with ScdValidator {
       SCD2_SCHEMA.fields.map(_.name).toSeq
     )
     val trackedColumns = getTrackedColumns(sourceDf, columnsToExclude.flatten)
-    val changedSourceDf = sourceDf.alias("source")
-      .join(targetCurrentDf.alias("target"), naturalKeyColumns)
-      .filter(trackedColumns.map(c => !col(s"source.$c").eqNullSafe(col(s"target.$c"))).reduce(_ || _))
-      .select(sourceDf.columns.map(c => col(s"source.$c")): _*)
+    val changedSourceDf = sourceDf.alias(SOURCE_ALIAS)
+      .join(targetCurrentDf.alias(TARGET_ALIAS), naturalKeyColumns)
+      .filter(trackedColumns.map(c => !col(s"$SOURCE_ALIAS.$c").eqNullSafe(col(s"$TARGET_ALIAS.$c"))).reduce(_ || _))
+      .select(sourceDf.columns.map(c => col(s"$SOURCE_ALIAS.$c")): _*)
 
     val newRecordsDf = sourceDf.join(targetCurrentDf, naturalKeyColumns, "left_anti")
 
@@ -87,12 +87,12 @@ object Scd2 extends ScdCommon with ScdValidator {
     val condition = getMergeCondition(naturalKeyColumns)
     val mergeCondition = s"""
                        | $condition
-                       | AND target.$IS_CURRENT_COL = true
-                       | AND source._merge_action = 'UPDATE'
+                       | AND $TARGET_ALIAS.$IS_CURRENT_COL = true
+                       | AND $SOURCE_ALIAS._merge_action = 'UPDATE'
        """.stripMargin
 
-    target.as("target")
-      .merge(mergeSourceDf.as("source"), mergeCondition)
+    target.as(TARGET_ALIAS)
+      .merge(mergeSourceDf.as(SOURCE_ALIAS), mergeCondition)
       .whenMatched
       .updateExpr(
         Map(
@@ -102,7 +102,7 @@ object Scd2 extends ScdCommon with ScdValidator {
       )
       .whenNotMatched
       .insertExpr(
-        sourceDf.columns.map(c => c -> s"source.$c").toMap ++
+        sourceDf.columns.map(c => c -> s"$SOURCE_ALIAS.$c").toMap ++
           Map(
             VALID_FROM_COL -> s"to_date('$ingestDate')",
             VALID_TO_COL -> "NULL",

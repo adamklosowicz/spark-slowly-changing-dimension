@@ -61,10 +61,10 @@ object Scd0 extends ScdCommon with ScdValidator {
       Map(CREATED_AT_COL -> s"to_date('$ingestDateStr')")
     } else Map()
 
-    target.as("target")
-      .merge(sourceDf.as("source"), mergeCondition)
+    target.as(TARGET_ALIAS)
+      .merge(sourceDf.as(SOURCE_ALIAS), mergeCondition)
       .whenNotMatched
-      .insertExpr(sourceDf.columns.map(c => c -> s"source.$c").toMap ++ technicalMap)
+      .insertExpr(sourceDf.columns.map(c => c -> s"$SOURCE_ALIAS.$c").toMap ++ technicalMap)
       .execute
   }
 

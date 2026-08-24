@@ -5,15 +5,16 @@ import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 
 trait ScdCommon {
 
+  protected val TARGET_ALIAS = "target"
+  protected val SOURCE_ALIAS = "source"
+
   protected def getMergeCondition(
     columns: Seq[String],
     comparisonOperator: String = "=",
     logicalOperator: String = "AND",
-    conditionTemplate: String = "<condition>",
-    leftAlias: String = "target",
-    rightAlias: String = "source"
+    conditionTemplate: String = "<condition>"
   ): String =
-    columns.map(k => conditionTemplate.replace("<condition>", s"$leftAlias.$k $comparisonOperator $rightAlias.$k")).mkString(s" $logicalOperator ")
+    columns.map(k => conditionTemplate.replace("<condition>", s"$TARGET_ALIAS.$k $comparisonOperator $SOURCE_ALIAS.$k")).mkString(s" $logicalOperator ")
 
   protected def getTrackedColumns(df: DataFrame, columnsToExclude: Seq[String]): Seq[String] =
     df.columns.filterNot(columnsToExclude.contains(_))
