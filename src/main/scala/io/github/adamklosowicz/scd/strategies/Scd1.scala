@@ -1,15 +1,14 @@
 package io.github.adamklosowicz.scd.strategies
 
-import io.github.adamklosowicz.scd.Helper.DfExtender
 import io.delta.tables.DeltaTable
-import io.github.adamklosowicz.scd.Helper
+import io.github.adamklosowicz.scd.utils.{ScdCommon, ScdValidator}
 import org.apache.spark.sql.functions.lit
 import org.apache.spark.sql.types.{DateType, StructField, StructType}
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 
 import java.time.LocalDate
 
-object Scd1 {
+object Scd1 extends ScdCommon with ScdValidator {
 
   protected val CREATED_AT_COL = "created_at"
   protected val UPDATED_AT_COL = "updated_at"
@@ -27,7 +26,7 @@ object Scd1 {
     ingestDate: Option[String] = None,
     technicalColumns: Seq[String] = Seq.empty
   )(implicit spark: SparkSession): Unit = {
-    if (!Helper.pathExists(targetPath)) {
+    if (!pathExists(targetPath)) {
       saveInitVersion(sourceDf, targetPath, includeDateCol, ingestDate)
     } else {
       merge(sourceDf, targetPath, naturalKeyColumns, includeDateCol, ingestDate, technicalColumns)
@@ -57,11 +56,11 @@ object Scd1 {
     ingestDate: Option[String] = None,
     technicalColumns: Seq[String] = Seq.empty
   )(implicit spark: SparkSession): Unit = {
-    Helper.validateDelta(targetPath)
+    validateDelta(targetPath)
     val target = DeltaTable.forPath(spark, targetPath)
 
     val scdSchema = if (includeDateCol) SCD1_SCHEMA else StructType(Seq())
-    Helper.validateSchema(target.toDF, sourceDf, scdSchema)
+    validateSchema(target.toDF, sourceDf, scdSchema)
 
     var columnsToExclude = Seq(
       naturalKeyColumns,
@@ -70,10 +69,10 @@ object Scd1 {
     if (includeDateCol) {
       columnsToExclude = columnsToExclude ++ Seq(Seq(CREATED_AT_COL, UPDATED_AT_COL))
     }
-    val trackedColumns = Helper.getTrackedColumns(sourceDf, columnsToExclude.flatten)
+    val trackedColumns = getTrackedColumns(sourceDf, columnsToExclude.flatten)
 
-    val mergeCondition = Helper.getCondition(naturalKeyColumns)
-    val matchCondition = Helper.getCondition(trackedColumns, "<=>", "OR", "NOT (<condition>)")
+    val mergeCondition = getMergeCondition(naturalKeyColumns)
+    val matchCondition = getMergeCondition(trackedColumns, "<=>", "OR", "NOT (<condition>)")
     val technicalMap1: Map[String, String] = if (includeDateCol) {
       val ingestDateStr = ingestDate.getOrElse(LocalDate.now())
       Map(UPDATED_AT_COL -> s"to_date('$ingestDateStr')")

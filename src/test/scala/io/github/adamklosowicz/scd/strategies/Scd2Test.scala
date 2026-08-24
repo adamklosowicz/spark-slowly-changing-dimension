@@ -1,5 +1,6 @@
 package io.github.adamklosowicz.scd.strategies
 
+import io.github.adamklosowicz.scd.exceptions.{DeltaRequiredException, IncompatibleSchemasException}
 import io.github.adamklosowicz.scd.utils.{ScdCommonTest, TestHelper}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.functions.col
@@ -64,6 +65,41 @@ class Scd2Test extends ScdCommonTest with BeforeAndAfterEach with Matchers {
     val updatedTarget = spark.read.format("delta").load(targetPath)
     updatedTarget.count() shouldBe 3
     updatedTarget.where(col("employee_id") === 2 && !col("is_current")).count() shouldBe 1
+  }
+
+  test("Should throw an exception for not matching schemas") {
+    val wrongSchema: StructType = StructType(Seq(
+      StructField("employee_id", IntegerType, nullable = false),
+      StructField("name", StringType, nullable = true),
+      StructField("salary", IntegerType, nullable = true)
+    ))
+    val nextIterationSource = spark.createDataFrame(
+      spark.sparkContext.parallelize(Seq(
+        Row(1, "Adam", 12500),
+        Row(2, "John", 12000)
+      )),
+      wrongSchema
+    )
+    assertThrows[IncompatibleSchemasException] {
+      Scd2(nextIterationSource, targetPath, naturalKey, Some("2026-08-01"))
+    }
+  }
+
+  test("Should throw an exception when file is not delta") {
+    val targetPath = "output/fake.delta"
+    val targetSchema: StructType = StructType(Seq(
+      StructField("employee_id", IntegerType, nullable = false),
+      StructField("city", StringType, nullable = false),
+      StructField("salary", IntegerType, nullable = true)
+    ))
+    val targetDf = spark.createDataFrame(spark.sparkContext.parallelize(Seq(Row(1, "Wroclaw", 10000))), targetSchema)
+    targetDf.write.mode("overwrite").parquet(targetPath)
+
+    val nextIterationDf = spark.createDataFrame(spark.sparkContext.parallelize(Seq(Row(2, "Berlin", 12000))), targetSchema)
+
+    assertThrows[DeltaRequiredException] {
+      Scd2(nextIterationDf, targetPath, naturalKey, Some("2026-08-01"))
+    }
   }
 
 }

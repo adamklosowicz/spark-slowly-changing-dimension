@@ -1,15 +1,14 @@
 package io.github.adamklosowicz.scd.strategies
 
-import io.github.adamklosowicz.scd.Helper.DfExtender
 import io.delta.tables.DeltaTable
-import io.github.adamklosowicz.scd.Helper
+import io.github.adamklosowicz.scd.utils.{ScdCommon, ScdValidator}
 import org.apache.spark.sql.functions.{col, lit}
 import org.apache.spark.sql.types.{BooleanType, DateType, StructField, StructType}
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 
 import java.time.LocalDate
 
-object Scd2 {
+object Scd2 extends ScdCommon with ScdValidator {
 
   protected val VALID_FROM_COL = "effective_from_date"
   protected val VALID_TO_COL = "effective_to_date"
@@ -31,7 +30,7 @@ object Scd2 {
   )(implicit spark: SparkSession): Unit = {
     val ingestDateFinal = ingestDate.getOrElse(LocalDate.now().toString)
 
-    if (!Helper.pathExists(targetPath)) {
+    if (!pathExists(targetPath)) {
       saveInitVersion(sourceDf, targetPath, ingestDateFinal)
     } else {
       merge(sourceDf, targetPath, naturalKeyColumns, ingestDateFinal, isSourceSnapshot, technicalColumns)
@@ -55,10 +54,10 @@ object Scd2 {
     isSourceSnapshot: Boolean,
     technicalColumns: Seq[String]
   )(implicit spark: SparkSession): Unit = {
-    Helper.validateDelta(targetPath)
+    validateDelta(targetPath)
 
     val target = DeltaTable.forPath(spark, targetPath)
-    Helper.validateSchema(target.toDF, sourceDf, SCD2_SCHEMA)
+    validateSchema(target.toDF, sourceDf, SCD2_SCHEMA)
 
     val targetCurrentDf = target.toDF.filter(col(IS_CURRENT_COL) === true)
       .drop(SCD2_SCHEMA.fields.map(_.name).toSeq: _*)
@@ -68,7 +67,7 @@ object Scd2 {
       technicalColumns,
       SCD2_SCHEMA.fields.map(_.name).toSeq
     )
-    val trackedColumns = Helper.getTrackedColumns(sourceDf, columnsToExclude.flatten)
+    val trackedColumns = getTrackedColumns(sourceDf, columnsToExclude.flatten)
     val changedSourceDf = sourceDf.alias("source")
       .join(targetCurrentDf.alias("target"), naturalKeyColumns)
       .filter(trackedColumns.map(c => !col(s"source.$c").eqNullSafe(col(s"target.$c"))).reduce(_ || _))
@@ -85,7 +84,7 @@ object Scd2 {
       mergeSourceDf = mergeSourceDf.unionByName(expiredRecordsDf.withColumn("_merge_action", lit("UPDATE")))
     }
 
-    val condition = Helper.getCondition(naturalKeyColumns)
+    val condition = getMergeCondition(naturalKeyColumns)
     val mergeCondition = s"""
                        | $condition
                        | AND target.$IS_CURRENT_COL = true

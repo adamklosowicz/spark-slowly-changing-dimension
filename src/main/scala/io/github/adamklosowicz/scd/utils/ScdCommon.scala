@@ -1,0 +1,42 @@
+package io.github.adamklosowicz.scd.utils
+
+import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.{Column, DataFrame, SparkSession}
+
+trait ScdCommon {
+
+  protected def getMergeCondition(
+    columns: Seq[String],
+    comparisonOperator: String = "=",
+    logicalOperator: String = "AND",
+    conditionTemplate: String = "<condition>",
+    leftAlias: String = "target",
+    rightAlias: String = "source"
+  ): String =
+    columns.map(k => conditionTemplate.replace("<condition>", s"$leftAlias.$k $comparisonOperator $rightAlias.$k")).mkString(s" $logicalOperator ")
+
+  protected def getTrackedColumns(df: DataFrame, columnsToExclude: Seq[String]): Seq[String] =
+    df.columns.filterNot(columnsToExclude.contains(_))
+
+  protected def pathExists(path: String)(implicit spark: SparkSession): Boolean = {
+    val p = new Path(path)
+    val fs = p.getFileSystem(spark.sparkContext.hadoopConfiguration)
+    fs.exists(p)
+  }
+
+  implicit class DfExtender(df: DataFrame) {
+
+    def applyColumns(columns: Map[String, Column]): DataFrame = {
+      columns.foldLeft(df) { case (tmpDf, (columnName, rule)) =>
+        tmpDf.withColumn(columnName, rule)
+      }
+    }
+
+    def saveWithColumns(targetPath: String, columnsToApply: Map[String, Column] = Map(), mode: String = "overwrite"): Unit = {
+      df.applyColumns(columnsToApply)
+        .write.format("delta").mode(mode)
+        .save(targetPath)
+    }
+
+  }
+}
