@@ -28,7 +28,7 @@ trait ScdCommon {
 
   implicit class DfExtender(df: DataFrame) {
 
-    def withHashColumn(name: String, includeHashColumn: Boolean, columnsToHash: Seq[String]): DataFrame =
+    def withHashColumn(name: String, columnsToHash: Seq[String], includeHashColumn: Boolean = true): DataFrame =
       if (includeHashColumn) {
         df.withColumn(name, sha2(concat_ws("|", columnsToHash.map(col): _*), 256))
       } else {

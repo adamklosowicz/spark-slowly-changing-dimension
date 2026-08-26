@@ -51,7 +51,7 @@ object Scd2 extends ScdCommon with ScdValidator {
       IS_CURRENT_COL -> lit(true)
     )
     sourceDf.withColumn(VALID_FROM_COL, lit(ingestDate).cast(DateType))
-      .withHashColumn(UNIQUE_ID_COL, includeUniqueId, naturalKeyColumns :+ VALID_FROM_COL)
+      .withHashColumn(UNIQUE_ID_COL, naturalKeyColumns :+ VALID_FROM_COL, includeUniqueId)
       .saveWithColumns(targetPath, columns)
   }
 
@@ -95,7 +95,7 @@ object Scd2 extends ScdCommon with ScdValidator {
     mergeSourceDf = mergeSourceDf.withColumn(VALID_FROM_COL, lit(ingestDate).cast(DateType))
       .withColumn(VALID_TO_COL, lit(null).cast(DateType))
       .withColumn(IS_CURRENT_COL, lit(true))
-      .withHashColumn(UNIQUE_ID_COL, includeUniqueId, naturalKeyColumns :+ VALID_FROM_COL)
+      .withHashColumn(UNIQUE_ID_COL, naturalKeyColumns :+ VALID_FROM_COL, includeUniqueId)
 
     val condition = getMergeCondition(naturalKeyColumns)
     val mergeCondition = s"""
