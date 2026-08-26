@@ -49,6 +49,7 @@ class Scd2Test extends ScdCommonTest with BeforeAndAfterEach with Matchers {
 
     val updatedTarget = spark.read.format("delta").load(targetPath)
     updatedTarget.count() shouldBe 5
+    updatedTarget.select("uuid").distinct().count() shouldBe 5
   }
 
   test("SCD2 should deactivate record that disappears in source") {
