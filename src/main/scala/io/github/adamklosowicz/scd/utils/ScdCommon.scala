@@ -1,6 +1,7 @@
 package io.github.adamklosowicz.scd.utils
 
 import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.functions.{col, concat_ws, sha2}
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 
 trait ScdCommon {
@@ -27,17 +28,22 @@ trait ScdCommon {
 
   implicit class DfExtender(df: DataFrame) {
 
-    def applyColumns(columns: Map[String, Column]): DataFrame = {
+    def withHashColumn(name: String, includeHashColumn: Boolean, columnsToHash: Seq[String]): DataFrame =
+      if (includeHashColumn) {
+        df.withColumn(name, sha2(concat_ws("|", columnsToHash.map(col): _*), 256))
+      } else {
+        df
+      }
+
+    def applyColumns(columns: Map[String, Column]): DataFrame =
       columns.foldLeft(df) { case (tmpDf, (columnName, rule)) =>
         tmpDf.withColumn(columnName, rule)
       }
-    }
 
-    def saveWithColumns(targetPath: String, columnsToApply: Map[String, Column] = Map(), mode: String = "overwrite"): Unit = {
+    def saveWithColumns(targetPath: String, columnsToApply: Map[String, Column] = Map(), mode: String = "overwrite"): Unit =
       df.applyColumns(columnsToApply)
         .write.format("delta").mode(mode)
         .save(targetPath)
-    }
 
   }
 }
