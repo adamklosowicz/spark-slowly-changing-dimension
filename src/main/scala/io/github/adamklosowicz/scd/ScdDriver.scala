@@ -19,6 +19,7 @@ object ScdDriver {
       case "scd0" => Scd0(sourceDf, targetPath, naturalKeyColumns, includeDateCol = true, ingestDate)
       case "scd1" => Scd1(sourceDf, targetPath, naturalKeyColumns, includeDateCol = true, ingestDate, technicalColumns.getOrElse(Seq.empty))
       case "scd2" => Scd2(sourceDf, targetPath, naturalKeyColumns, ingestDate, isSourceSnapshot.getOrElse(false), technicalColumns.getOrElse(Seq.empty))
+      case "scd3" => Scd3(sourceDf, targetPath, naturalKeyColumns, ingestDate, technicalColumns.getOrElse(Seq.empty))
       case _ => throw new InvalidScdTypeException(scdType)
     }
 
