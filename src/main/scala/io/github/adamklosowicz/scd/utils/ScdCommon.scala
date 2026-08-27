@@ -1,7 +1,7 @@
 package io.github.adamklosowicz.scd.utils
 
 import org.apache.hadoop.fs.Path
-import org.apache.spark.sql.functions.{col, concat_ws, sha2}
+import org.apache.spark.sql.functions.{col, concat_ws, lit, sha2}
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 
 trait ScdCommon {
@@ -27,6 +27,16 @@ trait ScdCommon {
   }
 
   implicit class DfExtender(df: DataFrame) {
+
+    def cloneTrackedColumns(naturalKeyColumns: Seq[String], technicalColumns: Seq[String], colSuffix: String = "_clone"): DataFrame = {
+      val columnsToExclude = Seq(
+        naturalKeyColumns,
+        technicalColumns
+      )
+      val columnPlaceholders = getTrackedColumns(df, columnsToExclude.flatten)
+        .map(name => (name + colSuffix, lit(null).cast(df.schema(name).dataType))).toMap
+      df.applyColumns(columnPlaceholders)
+    }
 
     def withHashColumn(name: String, columnsToHash: Seq[String], includeHashColumn: Boolean = true): DataFrame =
       if (includeHashColumn) {
