@@ -10,10 +10,10 @@ import java.time.LocalDate
 
 object Scd0 extends ScdCommon with ScdValidator {
 
-  protected val CREATED_AT_COL = "created_at"
+  protected val CREATED_ON_COL = "created_on"
 
   protected val SCD0_SCHEMA = StructType(Seq(
-    StructField(CREATED_AT_COL, DateType, nullable = false)
+    StructField(CREATED_ON_COL, DateType, nullable = false)
   ))
 
   def apply(
@@ -37,7 +37,7 @@ object Scd0 extends ScdCommon with ScdValidator {
     ingestDate: Option[String] = None
   ): Unit = {
     val columns: Map[String, Column] = if (includeDateCol) {
-      Map(CREATED_AT_COL -> lit(ingestDate.getOrElse(LocalDate.now())).cast(DateType))
+      Map(CREATED_ON_COL -> lit(ingestDate.getOrElse(LocalDate.now())).cast(DateType))
     } else Map()
     sourceDf.saveWithColumns(targetPath, columns)
   }
@@ -58,7 +58,7 @@ object Scd0 extends ScdCommon with ScdValidator {
     val mergeCondition = getMergeCondition(naturalKeyColumns)
     val technicalMap = if (includeDateCol) {
       val ingestDateStr = ingestDate.getOrElse(LocalDate.now())
-      Map(CREATED_AT_COL -> s"to_date('$ingestDateStr')")
+      Map(CREATED_ON_COL -> s"to_date('$ingestDateStr')")
     } else Map()
 
     target.as(TARGET_ALIAS)

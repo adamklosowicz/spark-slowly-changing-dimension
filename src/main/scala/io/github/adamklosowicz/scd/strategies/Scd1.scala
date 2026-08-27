@@ -10,12 +10,12 @@ import java.time.LocalDate
 
 object Scd1 extends ScdCommon with ScdValidator {
 
-  protected val CREATED_AT_COL = "created_at"
-  protected val UPDATED_AT_COL = "updated_at"
+  protected val CREATED_ON_COL = "created_on"
+  protected val UPDATED_ON_COL = "updated_on"
 
   protected val SCD1_SCHEMA = StructType(Seq(
-    StructField(CREATED_AT_COL, DateType, nullable = false),
-    StructField(UPDATED_AT_COL, DateType, nullable = false)
+    StructField(CREATED_ON_COL, DateType, nullable = false),
+    StructField(UPDATED_ON_COL, DateType, nullable = false)
   ))
 
   def apply(
@@ -41,8 +41,8 @@ object Scd1 extends ScdCommon with ScdValidator {
   ): Unit = {
     val columns: Map[String, Column] = if (includeDateCol) {
       Map(
-        CREATED_AT_COL -> lit(ingestDate.getOrElse(LocalDate.now())).cast(DateType),
-        UPDATED_AT_COL -> lit(ingestDate.getOrElse(LocalDate.now())).cast(DateType)
+        CREATED_ON_COL -> lit(ingestDate.getOrElse(LocalDate.now())).cast(DateType),
+        UPDATED_ON_COL -> lit(ingestDate.getOrElse(LocalDate.now())).cast(DateType)
       )
     } else Map()
     sourceDf.saveWithColumns(targetPath, columns)
@@ -67,7 +67,7 @@ object Scd1 extends ScdCommon with ScdValidator {
       technicalColumns
     )
     if (includeDateCol) {
-      columnsToExclude = columnsToExclude ++ Seq(Seq(CREATED_AT_COL, UPDATED_AT_COL))
+      columnsToExclude = columnsToExclude ++ Seq(Seq(CREATED_ON_COL, UPDATED_ON_COL))
     }
     val trackedColumns = getTrackedColumns(sourceDf, columnsToExclude.flatten)
 
@@ -75,10 +75,10 @@ object Scd1 extends ScdCommon with ScdValidator {
     val matchCondition = getMergeCondition(trackedColumns, "<=>", "OR", "NOT (<condition>)")
     val technicalMap1: Map[String, String] = if (includeDateCol) {
       val ingestDateStr = ingestDate.getOrElse(LocalDate.now())
-      Map(UPDATED_AT_COL -> s"to_date('$ingestDateStr')")
+      Map(UPDATED_ON_COL -> s"to_date('$ingestDateStr')")
     } else Map()
     val technicalMap2: Map[String, String] = if (includeDateCol) {
-      technicalMap1 ++ Map(CREATED_AT_COL -> technicalMap1(UPDATED_AT_COL))
+      technicalMap1 ++ Map(CREATED_ON_COL -> technicalMap1(UPDATED_ON_COL))
     } else Map()
 
     target.as(TARGET_ALIAS)
